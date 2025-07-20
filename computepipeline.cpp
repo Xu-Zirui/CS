@@ -15,8 +15,27 @@ void ComputePipeline::AddSSBO(const std::string& name, std::shared_ptr<SSBO> ssb
 void ComputePipeline::AddUBO(const std::string& name, std::shared_ptr<UBO> ubo) {
     ubos_[name] = std::move(ubo);
 }
-
+bool ComputePipeline::UpdateSSBO(const std::string& name, size_t newSize, const void* data) {
+    auto it = ssbos_.find(name);
+    if (it == ssbos_.end()) {
+        std::cerr << "SSBO not found: " << name << std::endl;
+        return false;
+    }
+    auto& ssbo = it->second;
+    if(ssbo->GetSize() != newSize) {
+        ssbo->Resize(newSize, data);
+    } else {
+        ssbo->UploadData(data, newSize);
+    }
+    return true;
+}
 bool ComputePipeline::Build(const std::string& shaderName) {
+    auto existingIt = programs_.find(shaderName);
+    if (existingIt != programs_.end()) {
+        std::cout << "Program for shader [" << shaderName << "] already built, skipping rebuild." << std::endl;
+        return true;
+    }
+
     auto it = shaders_.find(shaderName);
     if (it == shaders_.end()) {
         std::cerr << "Shader not found: " << shaderName << std::endl;
@@ -40,7 +59,6 @@ bool ComputePipeline::Build(const std::string& shaderName) {
         if (index == GL_INVALID_INDEX) {
             continue;
         }
-
         GLenum props[] = { GL_BUFFER_BINDING };
         GLuint binding = 0;
         GLint length = 0;
@@ -80,48 +98,6 @@ void ComputePipeline::Dispatch(const std::string& shaderName, GLuint x, GLuint y
     it->second->release();
 }
 
-bool ComputePipeline::SetUniform(const std::string& shaderName, const std::string& uniformName, int value) {
-    return SetUniformImpl(shaderName, uniformName, [&](int location) {
-        programs_[shaderName]->setUniformValue(location, value);
-    });
-}
-
-bool ComputePipeline::SetUniform(const std::string& shaderName, const std::string& uniformName, unsigned int value) {
-    return SetUniformImpl(shaderName, uniformName, [&](int location) {
-        programs_[shaderName]->setUniformValue(location, static_cast<int>(value));
-    });
-}
-
-bool ComputePipeline::SetUniform(const std::string& shaderName, const std::string& uniformName, float value) {
-    return SetUniformImpl(shaderName, uniformName, [&](int location) {
-        programs_[shaderName]->setUniformValue(location, value);
-    });
-}
-
-bool ComputePipeline::SetUniform(const std::string& shaderName, const std::string& uniformName, const QVector2D& value) {
-    return SetUniformImpl(shaderName, uniformName, [&](int location) {
-        programs_[shaderName]->setUniformValue(location, value);
-    });
-}
-
-bool ComputePipeline::SetUniform(const std::string& shaderName, const std::string& uniformName, const QVector3D& value) {
-    return SetUniformImpl(shaderName, uniformName, [&](int location) {
-        programs_[shaderName]->setUniformValue(location, value);
-    });
-}
-
-bool ComputePipeline::SetUniform(const std::string& shaderName, const std::string& uniformName, const QVector4D& value) {
-    return SetUniformImpl(shaderName, uniformName, [&](int location) {
-        programs_[shaderName]->setUniformValue(location, value);
-    });
-}
-
-bool ComputePipeline::SetUniform(const std::string& shaderName, const std::string& uniformName, const QMatrix4x4& value) {
-    return SetUniformImpl(shaderName, uniformName, [&](int location) {
-        programs_[shaderName]->setUniformValue(location, value);
-    });
-}
-
 template<typename Setter>
 bool ComputePipeline::SetUniformImpl(const std::string& shaderName, const std::string& uniformName, Setter setter) {
     auto it = programs_.find(shaderName);
@@ -143,4 +119,5 @@ bool ComputePipeline::SetUniformImpl(const std::string& shaderName, const std::s
     program->release();
     return true;
 }
+
 

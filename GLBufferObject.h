@@ -11,6 +11,7 @@ public:
     virtual ~GLBufferObject();
 
     void Create(std::size_t size, const void* data = nullptr, GLenum usage = GL_DYNAMIC_DRAW);
+    void Resize(std::size_t newSize, const void* data = nullptr, GLenum usage = GL_DYNAMIC_DRAW);
     void UploadData(const void* data, std::size_t size, GLintptr offset = 0);
     void BindToIndex(GLuint index);
 

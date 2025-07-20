@@ -7,23 +7,32 @@
 #include <vector>
 #include <iostream>
 #include "ComputeShader.h"
-#include "ssbo.h"  // 里面包含SSBO和UBO定义
+#include "ssbo.h"
 
 class ResourceManager {
 public:
     ResourceManager() = default;
+    // 禁止拷贝
+    ResourceManager(const ResourceManager&) = delete;
+    ResourceManager& operator=(const ResourceManager&) = delete;
 
+    // 允许移动
+    ResourceManager(ResourceManager&&) = default;
+    ResourceManager& operator=(ResourceManager&&) = default;
+
+    ~ResourceManager() {
+        ReleaseAll();
+    }
     // 加载ComputeShader文件，传入名字和路径
     void LoadShaders(const std::map<std::string, std::string>& shaderFiles);
 
     // 创建SSBO，传入名字和大小（字节）
-    void CreateSSBOs(const std::map<std::string, size_t>& ssboSizes);
+    void CreateSSBOs(const std::map<std::string, size_t>& ssboSizes, GLenum usage= GL_DYNAMIC_DRAW);
 
-
-
+    void CreatExternalSSBO(const std::string& name, GLuint existingBufferId) ;
     // 创建UBO，传入名字和大小（字节）
     void CreateUBOs(const std::map<std::string, size_t>& uboSizes);
-
+    void AddExternalSSBOs(const std::map<std::string, GLuint>& externalSSBOs);
     template<typename T>
     void CreateSSBOWithData(const std::string& name, const std::vector<T>& data) {
         auto ssbo = std::make_shared<SSBO>(name);
@@ -57,6 +66,7 @@ private:
     std::map<std::string, std::shared_ptr<ComputeShader>> shaders_;
     std::map<std::string, std::shared_ptr<SSBO>> ssbos_;
     std::map<std::string, std::shared_ptr<UBO>> ubos_;
+    void ReleaseAll();
 };
 
 

@@ -8,12 +8,22 @@ void ResourceManager::LoadShaders(const std::map<std::string, std::string>& shad
     }
 }
 
-void ResourceManager::CreateSSBOs(const std::map<std::string, size_t>& ssboSizes) {
+void ResourceManager::CreateSSBOs(const std::map<std::string, size_t>& ssboSizes, GLenum usage) {
     for (const auto& [name, size] : ssboSizes) {
         auto ssbo = std::make_shared<SSBO>(name);
-        ssbo->Create(size, nullptr);
+        ssbo->Create(size, nullptr,usage);
         ssbos_[name] = ssbo;
         std::cout << "Created SSBO: " << name << " size: " << size << std::endl;
+    }
+}
+// 批量注册外部已有的 SSBO
+void ResourceManager::AddExternalSSBOs(const std::map<std::string, GLuint>& externalSSBOs) {
+    for (const auto& kv : externalSSBOs) {
+        const std::string& name = kv.first;
+        GLuint bufferId = kv.second;
+        auto ssbo = std::make_shared<SSBO>(name, bufferId);
+        ssbos_[name] = ssbo;
+        std::cout << "Registered external SSBO from GPU buffer id: " << bufferId << ", name: " << name << std::endl;
     }
 }
 
@@ -24,7 +34,6 @@ void ResourceManager::CreateUBOs(const std::map<std::string, size_t>& uboSizes) 
         std::cout << "Created UBO: " << name << " size: " << size << std::endl;
     }
 }
-
 std::shared_ptr<ComputeShader> ResourceManager::GetShader(const std::string& name) {
     auto it = shaders_.find(name);
     if (it == shaders_.end()) {
@@ -50,4 +59,12 @@ std::shared_ptr<UBO> ResourceManager::GetUBO(const std::string& name) {
         return nullptr;
     }
     return it->second;
+}
+void  ResourceManager::ReleaseAll()
+{
+    shaders_.clear();
+    ssbos_.clear();
+    ubos_.clear();
+
+
 }

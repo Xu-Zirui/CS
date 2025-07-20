@@ -32,6 +32,16 @@ void GLBufferObject::UploadData(const void* data, std::size_t size, GLintptr off
     glNamedBufferSubData(id_, offset, size, data);
 }
 
+
+void GLBufferObject::Resize(std::size_t newSize, const void* data , GLenum usage) {
+    if (!ownsBuffer_) {
+        qWarning() << "Cannot resize external ID buffer:" << QString::fromStdString(name_);
+        return;
+    }
+    // 重新分配缓冲区空间，会丢弃之前数据
+    glNamedBufferData(id_, newSize, data, usage);
+}
+
 void GLBufferObject::BindToIndex(GLuint index) {
     glBindBufferBase(target_, index, id_);
 }
