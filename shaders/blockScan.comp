@@ -1,0 +1,50 @@
+#version 450 core
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) buffer InputBuffer { uint inputData[]; };
+layout(std430, binding = 1) buffer OutputBuffer { uint outputData[]; };
+layout(std430, binding = 2) buffer BlockSums   { uint blockSums[]; };
+
+shared uint temp[256];
+
+void main() {
+    uint tid = gl_LocalInvocationID.x;
+    uint gid = gl_GlobalInvocationID.x;
+    uint blockIndex = gl_WorkGroupID.x;
+
+    uint val = (gid < inputData.length()) ? inputData[gid] : 0u;
+    temp[tid] = val;
+    memoryBarrierShared();
+    barrier();
+
+    // Up-sweep (reduce)
+    for(uint offset = 1u; offset < gl_WorkGroupSize.x; offset <<= 1u) {
+        uint idx = (tid + 1u) * (offset << 1u) - 1u;
+        if(idx < gl_WorkGroupSize.x)
+            temp[idx] += temp[idx - offset];
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if(tid == 0u) {
+        blockSums[blockIndex] = temp[gl_WorkGroupSize.x - 1u];
+        temp[gl_WorkGroupSize.x - 1u] = 0u;
+    }
+    memoryBarrierShared();
+    barrier();
+
+    // Down-sweep
+    for(uint offset = gl_WorkGroupSize.x >> 1u; offset > 0u; offset >>= 1u) {
+        uint idx = (tid + 1u) * (offset << 1u) - 1u;
+        if(idx < gl_WorkGroupSize.x) {
+            uint t = temp[idx - offset];
+            temp[idx - offset] = temp[idx];
+            temp[idx] += t;
+        }
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if(gid < outputData.length())
+        outputData[gid] = temp[tid];
+}

@@ -1,0 +1,35 @@
+#version 460
+
+layout(local_size_x = 32) in;
+
+layout(std430, binding = 0) buffer Input {
+    uint data[];
+};
+
+shared uint temp[32]; // 32 = 8 groups * 4
+
+void main() {
+    uint gid = gl_GlobalInvocationID.x;   // 全局索引
+    uint lid = gl_LocalInvocationID.x;    // 当前线程在 group 内的位置
+    uint groupBase = gl_WorkGroupID.x * 32; // 一个 workgroup 处理 8 group（32 个数据）
+
+    // Load data to shared memory
+    temp[lid] = data[groupBase + lid];
+
+    memoryBarrierShared();
+    barrier();
+
+    // 每 4 个为一组做 prefix sum
+    uint groupOffset = (lid / 4) * 4;
+    uint idxInGroup = lid % 4;
+
+    if (idxInGroup >= 1) temp[lid] += temp[groupOffset + 0];
+    if (idxInGroup >= 2) temp[lid] += temp[groupOffset + 1];
+    if (idxInGroup >= 3) temp[lid] += temp[groupOffset + 2];
+
+    memoryBarrierShared();
+    barrier();
+
+    // Write back
+    data[groupBase + lid] = temp[lid];
+}

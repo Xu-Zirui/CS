@@ -1,0 +1,12 @@
+#version 450 core
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 1) buffer OutputBuffer { uint outputData[]; };
+layout(std430, binding = 2) buffer BlockSums   { uint blockSums[]; };
+
+void main() {
+    uint gid = gl_GlobalInvocationID.x;
+    uint blockId = gid / 256u;
+    if(blockId > 0u && gid < outputData.length())
+        outputData[gid] += blockSums[blockId - 1u];
+}
