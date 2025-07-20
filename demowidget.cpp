@@ -7,7 +7,7 @@
 #include <QElapsedTimer>
 #include <QString>
 #include <QDebug>
-
+#include "csresourcemanager.h"
 // Run a function and measure its execution time in milliseconds
 template<typename Func>
 qint64 MeasureExecutionTime(Func&& func, const QString& info = QString())
@@ -98,7 +98,7 @@ bool DemoWidget::RunComputeShader(ComputePipeline& pipeline,
         qWarning() << QString::fromStdString(shaderName) << "build failed";
         return false;
     }
-    pipeline.Dispatch(dispatchCount);
+    pipeline.Dispatch(shaderName,dispatchCount);
     glFinish(); // Wait for GPU to complete
     return true;
 }
@@ -126,22 +126,34 @@ void DemoWidget::VerifyOutput(const std::vector<uint32_t>& output, int printCoun
 void DemoWidget::RunDemoPipeline()
 {
     const int dataSize = 10000000; // Test with 100,000 elements
+    ResourceManager rm;
 
-    std::shared_ptr<SSBO> ssboInput, ssboOutput, ssboBlockSums;
-    std::vector<uint32_t> inputData;
+    // 加载shader
+    rm.LoadShaders({
+                    {"BlockScan", "C:/Users/xzr/Documents/Demo/shaders/blockScan.comp"},
+                    {"AddBlockSums", "C:/Users/xzr/Documents/Demo/shaders/addBlockSums.comp"},
+                    });
 
-    PrepareBuffers(dataSize, ssboInput, ssboOutput, ssboBlockSums, inputData);
+    // 创建并初始化SSBO
+    std::vector<uint32_t> inputData = GenerateRandomData(dataSize, 1, dataSize);
+    rm.CreateSSBOWithData("InputBuffer", inputData);
 
-    auto blockScanShader = std::make_shared<ComputeShader>("C:/Users/xzr/Documents/Demo/shaders/blockScan.comp");
-    auto addBlockSumsShader = std::make_shared<ComputeShader>("C:/Users/xzr/Documents/Demo/shaders/addBlockSums.comp");
+    // 创建空SSBO和UBO
+    rm.CreateSSBOs({
+        {"OutputBuffer", dataSize * sizeof(uint32_t)},
+        {"BlockSums", ((dataSize + 255) / 256) * sizeof(uint32_t)}
+    });
 
+
+    // 加载所有资源到ComputePipeline
     ComputePipeline pipeline;
-    pipeline.AddShader("BlockScan", blockScanShader);
-    pipeline.AddShader("AddBlockSums", addBlockSumsShader);
+    for (auto& [name, shader] : rm.GetAllShaders())
+        pipeline.AddShader(name, shader);
+    for (auto& [name, ssbo] : rm.GetAllSSBOs())
+        pipeline.AddSSBO(name, ssbo);
+    for (auto& [name, ubo] : rm.GetAllUBOs())
+        pipeline.AddUBO(name, ubo); // 你需要在ComputePipeline中加这个接口
 
-    pipeline.AddSSBO("InputBuffer", ssboInput);
-    pipeline.AddSSBO("OutputBuffer", ssboOutput);
-    pipeline.AddSSBO("BlockSums", ssboBlockSums);
     int numBlocks = (dataSize + 256 - 1) / 256;
 
     // Run the first shader and measure execution time
@@ -156,8 +168,10 @@ void DemoWidget::RunDemoPipeline()
 
     // Read output buffer and measure time (can be skipped for pure GPU timing)
     std::vector<uint32_t> outputData;
+
+
     qint64 tReadOutput = MeasureExecutionTime([&]() {
-        ReadBuffer(ssboOutput, dataSize, outputData);
+        ReadBuffer(pipeline.GetSsbos()["OutputBuffer"], dataSize, outputData);
     }, "Reading output buffer");
 
     VerifyOutput(outputData, 16);

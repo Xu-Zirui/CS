@@ -29,6 +29,10 @@ qt_add_executable(QtComputeShaderDemo
     SSBO.h
     demowidget.h demowidget.cpp
     demowidget.h demowidget.cpp
+    GLBufferObject.h
+    computepipeline.h computepipeline.cpp
+    GLBufferObject.cpp
+    csresourcemanager.h csresourcemanager.cpp
 )
 
 # 链接 Qt 库

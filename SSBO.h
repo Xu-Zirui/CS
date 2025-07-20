@@ -1,41 +1,24 @@
 #ifndef SSBO_H
 #define SSBO_H
 
-#include <QOpenGLFunctions_4_5_Core>
-#include <string>
+#include "GLBufferObject.h"
 
-class SSBO : protected QOpenGLFunctions_4_5_Core {
+class SSBO : public GLBufferObject {
 public:
     explicit SSBO(const std::string& name)
-        : m_name(name) {
-        initializeOpenGLFunctions();
-        glCreateBuffers(1, &m_id);
-    }
+        : GLBufferObject(GL_SHADER_STORAGE_BUFFER, name, true) {}
 
-    ~SSBO() {
-        if (m_id != 0) {
-            glDeleteBuffers(1, &m_id);
-            m_id = 0;
-        }
-    }
-
-    void Create(std::size_t size, const void* data = nullptr, GLenum usage = GL_DYNAMIC_DRAW) {
-        glNamedBufferData(m_id, size, data, usage);
-    }
-
-    void BindToIndex(GLuint index) {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, m_id);
-    }
-
-    void Bind()  { glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_id); }
-    void Unbind()  { glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); }
-
-    GLuint Id() const { return m_id; }
-    const std::string& Name() const { return m_name; }
-
-private:
-    GLuint m_id = 0;
-    std::string m_name;
+    SSBO(const std::string& name, GLuint externalId)
+        : GLBufferObject(GL_SHADER_STORAGE_BUFFER, externalId, name) {}
 };
+class UBO : public GLBufferObject {
+public:
+    UBO(std::size_t size, GLenum usage = GL_DYNAMIC_DRAW)
+        : GLBufferObject(GL_UNIFORM_BUFFER, "UBO", true) {
+        Create(size, nullptr, usage);
+    }
 
+    UBO(GLuint externalId)
+        : GLBufferObject(GL_UNIFORM_BUFFER, externalId, "UBO") {}
+};
 #endif // SSBO_H
